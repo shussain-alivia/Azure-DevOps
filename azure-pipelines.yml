@@ -26,3 +26,52 @@ steps:
     pathtoPublish: 'MyApp/dist'  # Replace 'MyApp/dist' with the path to your Angular build output
     artifactName: 'angular-artifact'  # Name for the artifact
   displayName: 'Publish Angular Artifacts'  
+# Define your pipeline steps here
+
+# Add a PowerShell task to send an email on pipeline failure
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: |
+      $sendEmail = $env:BUILD_RESULT -eq "Failed"
+      if ($sendEmail) {
+          # Define your email details
+          $sendTo = "shussain@aliviaanalytics.com"
+          $sendFrom = "noreply@alivianotify.com"
+
+          # Access ADO predefined variables
+          $buildId = $env:BUILD_BUILDID
+          $buildUri = $env:BUILD_BUILDURI
+          $jobName = $env:JOB_NAME
+
+          # Construct subject and body with pipeline details
+          $subject = "Pipeline Build $buildId Failed: Job '$jobName'"
+          $body = "Pipeline Build $buildId has failed for Job '$jobName'."
+          $body += "`n`nBuild Details:`n$buildUri`n`nPlease check the logs for details."
+
+          # Define the SMTP server and port (Replace these values with your SMTP server details)
+          $smtpServer = "smtp.aliviaanalytics.com"
+          $smtpPort = 587
+          $smtpUsername = ""
+          $smtpPassword = ""
+
+          # Create the email message
+          $email = @{
+              To = $sendTo
+              From = $sendFrom
+              Subject = $subject
+              Body = $body
+              SmtpServer = $smtpServer
+              Port = $smtpPort
+              UseSsl = $true
+              #Credential = New-Object System.Management.Automation.PSCredential ($smtpUsername, (ConvertTo-SecureString $smtpPassword -AsPlainText -Force))
+          }
+
+          # Try sending the email and catch any exceptions
+          try {
+              Send-MailMessage @email
+              Write-Host "Email notification sent."
+          } catch {
+              Write-Host "Failed to send email notification: $_.Exception.Message"
+          }
+      }
