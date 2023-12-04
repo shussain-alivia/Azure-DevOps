@@ -1,77 +1,71 @@
-# Node.js with Angular
-# Build a Node.js project that uses Angular.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
-
+# Your pipeline definition
 trigger:
-- main
+  branches:
+    include:
+      - main
+      - development
 
-pool:
-  vmImage: ubuntu-latest
+# Define stages, jobs, and steps
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndTest
+        displayName: 'Build and Test'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          # Add your build and test steps here
+          - script: echo "Building..."
 
-steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '18.x'
-  displayName: 'Install Node.js'
+  - stage: Deployment
+    jobs:
+      - job: DeployToProduction
+        displayName: 'Deploy to Production'
+        pool:
+          vmImage: 'windows-latest'
+        steps:
+          # Add your deployment steps here
+          - script: echo "Deploying..."
+  - stage: PostProcessing
+    jobs:
+    - job: SendEmailNotification
+      displayName: 'Send Email Notification'
+      pool:
+        vmImage: 'windows-latest'
+      steps:
+        - powershell: |
+            $sendTo = "shussain@aliviaanalytics.com"
+            $sendFrom = "noreply@alivianotify.com"
 
-- script: |
-    cd MyApp  # Navigate to the directory where package.json exists
-    npm install -g @angular/cli
-    npm install
-    ng build --prod
-  displayName: 'npm install and build'
-- task: PublishBuildArtifacts@1
-  inputs:
-    pathtoPublish: 'MyApp/dist'  # Replace 'MyApp/dist' with the path to your Angular build output
-    artifactName: 'angular-artifact'  # Name for the artifact
-  displayName: 'Publish Angular Artifacts'  
-# Define your pipeline steps here
+            $buildId = $env:BUILD_BUILDID
+            $buildUri = $env:BUILD_BUILDURI
+            $jobName = $env:JOB_NAME
 
-# Add a PowerShell task to send an email on pipeline failure
-- task: PowerShell@2
-  inputs:
-    targetType: 'inline'
-    script: |
-      $sendEmail = $env:BUILD_RESULT -eq "Failed"
-      if ($sendEmail) {
-          # Define your email details
-          $sendTo = "shussain@aliviaanalytics.com"
-          $sendFrom = "noreply@alivianotify.com"
+            $subject = "Pipeline Build $buildId Completed: Job '$jobName'"
+            $body = "Pipeline Build $buildId has completed for Job '$jobName'."
+            $body += "`n`nBuild Details:`n$buildUri`n`nPlease review the logs for details."
 
-          # Access ADO predefined variables
-          $buildId = $env:BUILD_BUILDID
-          $buildUri = $env:BUILD_BUILDURI
-          $jobName = $env:JOB_NAME
+            $smtpServer = "smtp.aliviaanalytics.com"
+            $smtpPort = 587
+            
+            
 
-          # Construct subject and body with pipeline details
-          $subject = "Pipeline Build $buildId Failed: Job '$jobName'"
-          $body = "Pipeline Build $buildId has failed for Job '$jobName'."
-          $body += "`n`nBuild Details:`n$buildUri`n`nPlease check the logs for details."
+            $email = @{
+                To = $sendTo
+                From = $sendFrom
+                Subject = $subject
+                Body = $body
+                SmtpServer = $smtpServer
+                Port = $smtpPort
+                UseSsl = $true
+                
+            }
 
-          # Define the SMTP server and port (Replace these values with your SMTP server details)
-          $smtpServer = "smtp.aliviaanalytics.com"
-          $smtpPort = 587
-          $smtpUsername = ""
-          $smtpPassword = ""
-
-          # Create the email message
-          $email = @{
-              To = $sendTo
-              From = $sendFrom
-              Subject = $subject
-              Body = $body
-              SmtpServer = $smtpServer
-              Port = $smtpPort
-              UseSsl = $true
-              #Credential = New-Object System.Management.Automation.PSCredential ($smtpUsername, (ConvertTo-SecureString $smtpPassword -AsPlainText -Force))
-          }
-
-          # Try sending the email and catch any exceptions
-          try {
-              Send-MailMessage @email
-              Write-Host "Email notification sent."
-          } catch {
-              Write-Host "Failed to send email notification: $_.Exception.Message"
-          }
-      }
+            try {
+                Send-MailMessage @email
+                Write-Host "Email notification sent."
+            } catch {
+                Write-Host "Failed to send email notification: $_.Exception.Message"
+            }
+          displayName: 'Send Email on Completion'
+      condition: always()
