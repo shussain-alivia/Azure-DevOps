@@ -26,46 +26,14 @@ stages:
         steps:
           # Add your deployment steps here
           - script: echo "Deploying..."
-  - stage: PostProcessing
+
+  - stage: DisplayEnvironmentVariablesBash
     jobs:
-    - job: SendEmailNotification
-      displayName: 'Send Email Notification'
-      pool:
-        vmImage: 'windows-latest'
-      steps:
-        - powershell: |
-            $sendTo = "shussain@aliviaanalytics.com"
-            $sendFrom = "noreply@alivianotify.com"
-
-            $buildId = $env:BUILD_BUILDID
-            $buildUri = $env:BUILD_BUILDURI
-            $jobName = $env:JOB_NAME
-
-            $subject = "Pipeline Build $buildId Completed: Job '$jobName'"
-            $body = "Pipeline Build $buildId has completed for Job '$jobName'."
-            $body += "`n`nBuild Details:`n$buildUri`n`nPlease review the logs for details."
-
-            $smtpServer = "smtp.aliviaanalytics.com"
-            $smtpPort = 587
-            
-            
-
-            $email = @{
-                To = $sendTo
-                From = $sendFrom
-                Subject = $subject
-                Body = $body
-                SmtpServer = $smtpServer
-                Port = $smtpPort
-                UseSsl = $true
-                
-            }
-
-            try {
-                Send-MailMessage @email
-                Write-Host "Email notification sent."
-            } catch {
-                Write-Host "Failed to send email notification: $_.Exception.Message"
-            }
-          displayName: 'Send Email on Completion'
-      condition: always()
+      - job: ShowVariablesBash
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: |
+              echo "Displaying Environment Variables using Bash"
+              printenv
+            displayName: 'Display Environment Variables (Bash)'
